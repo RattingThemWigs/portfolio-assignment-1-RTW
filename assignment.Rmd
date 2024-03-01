@@ -1,6 +1,8 @@
 ---
 title: "Methods 2 -- Portfolio Assignment 1"
 output:
+  html_document:
+    df_print: paged
   pdf_document: default
 ---
 
