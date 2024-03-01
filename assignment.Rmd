@@ -8,6 +8,10 @@ output:
 - _Due:_ 10 March 2024, 23:59
 
 ---
+```{r load packages}
+pacman::p_load(ggplot2, tidyverse)
+```
+
 
 In the following exercises, you will be asked to generate and summarize simulations from statistical models. You should use what you have learned so far (i.e. for loop, if else statements, sampling from continuous and discrete distributions...) to generate observations and summarize your samples using (one of) the appropriate methods. You can find examples of how to do that in Ch. 5. Note that here we will only focus on generative models, several aspects for inference and hypothesis testing discussed in Ch. 4 are not directly needed in this context.
 
@@ -19,41 +23,130 @@ Please submit your answers on GitHub Classroom.
 
 1. _(5.2 from ROS)_ __Continuous probability simulation:__ The logarithms of weights (in pounds) of men in the United States are approximately normally distributed with mean 5.13 and standard deviation 0.17; women’s log weights are approximately normally distributed with mean 4.96 and standard deviation 0.20. Suppose 10 adults selected at random step on an elevator with a capacity of 1750 pounds. What is the probability that their total weight exceeds this limit?
 
+```{r exercise 5.2}
+set.seed(111)	# Setting seed 
+
+# Defining info from description
+prop_female <- .49	# Probability of random person being a female
+men_weight <- 5.13 # Mean logarithmic weight of men
+men_sd <- .17	# Standard deviation in logarithmic weight of men
+women_weight <- 4.96	#Mean logarithmic weight of women
+women_sd <- .20	#Standard deviation in logarithmic weight of women
+
+# Setting number of people, capacity of elevator, number of simulations
+n <- 10	
+capacity <- 1750	
+num_sims <- 100000	
+
+Above_capacity <- rep(NA, num_sims)	
+
+for (j in 1:num_sims) {	# runs the simulation for the specified number of times.
+  weights <- rep(NA, n)	
+  is_female <- rbinom(n=n, size=1, prob=prop_female)	
+  for (i in 1:n) {	# generates random weights for each adult based on their gender, and calculates the total weight.
+    log_weight <- ifelse(is_female[i]==1,	# Assigning gender
+                         rnorm(n=1, mean=women_weight, sd=women_sd),	# Drawing from normal distribution
+                         rnorm(n=1, mean=men_weight, sd=men_sd)	# -||-
+                         )	
+    weights[i]<- exp(log_weight)	# Inverting the logarithmic value, getting weight in pounds
+  }	
+  Above_capacity[j] <- ifelse(capacity<sum(weights), 1, 0)	# Checking if sum of weights for simulations draws is above capacity
+}	
+sum(Above_capacity) / num_sims # Probability that the weight of 10 people is above capacity of elevator
+```
+The probability that the weight of 10 random people exceed the elevator's capacity limit of 1750 pounds is approximately 5,7%. 
 ---
 
 2. _(5.6 from ROS)_ __Propagation of uncertainty:__ We use a highly idealized setting to illustrate the use of simulations in combining uncertainties. Suppose a company changes its technology for widget production, and a study estimates the cost savings at \$5 per unit, but with a standard error of \$4. Furthermore, a forecast estimates the size of the market (that is, the number of widgets that will be sold) at 40 000, with a standard error of 10 000. Assuming these two sources of uncertainty are independent, use simulation to estimate the total amount of money saved by the new product (that is, savings per unit, multiplied by size of the market).
 
-1. define cost savings
-2. define market 
-3. simulate 
+```{r exercise 5.6}
+# Setting seed
+set.seed(1999)
 
-```{r}
-# Setting number of simulations
-n_sims <- 1000
+# Defining variables market, savings and the vector money saved
+market <- 0
+savings <- 0
+money_saved <- c()
 
-# Defining market 
-market <- mean(rnorm(n_sims, 40000, 10000))
+for (i in 1:100000){ # Running simulation 100.000 times
+  market <- rnorm(1, 40000, 10000) # Setting estimates from forecast's estimate of market size
+  savings <- rnorm(1, 5, 4) # Setting estimates from study's estimated cost savings 
+  money_saved <- c(money_saved, market * savings) # Multiplying market size and savings per product to get total amount of money saved
+}
 
-# Defining money savings
-savings <- mean(rnorm(n_sims, 5, 4))
-
-# Money saved
-market*savings
+mean(money_saved) # Calculating our simulation's estimation of total savings 
 
 ```
-
+Given the estimated savings per product and market size, our simulation estimates the company's total savings of the new produc to be approximately $200628. 
 ---
 
 3. _(5.10 from ROS)_ __Inference for a ratio of parameters:__ A (hypothetical) study compares the costs and effectiveness of two different medical treatments.
 
-    - In the first part of the study, the difference in costs between treatments A and B is estimated at \$600 per patient, with a standard error of \$400, based on a regression with 50 degrees of freedom.
+    - In the first part of the study, the difference in costs between treatments A and B is estimated at \$600 per patient, with a standard error of \$400, based on a regression with 50 degrees of freedom
     - In the second part of the study, the difference in effectiveness is estimated at 3.0 (on some relevant measure), with a standard error of 1.0, based on a regression with 100 degrees of freedom.
-    - For simplicity, assume that the data from the two parts of the study were collected independently.
-
+    - For simplicity, assume that the data from the two parts of the study were collected independently
     Inference is desired for the incremental cost-effectiveness ratio: the difference between the average costs of the two treatments, divided by the difference between their average effectiveness, a problem discussed further by Heitjan, Moskowitz, and Whang (1999).
 
-    (a) Create 1000 simulation draws of the cost difference and the effectiveness difference, and make a scatterplot of these draws.
-    (b) Use simulation to come up with an estimate, 50% interval, and 95% interval for the incremental cost-effectiveness ratio.
-    (c) Repeat, changing the standard error on the difference in effectiveness to 2.0.
+(a) Create 1000 simulation draws of the cost difference and the effectiveness difference, and make a scatterplot of these draws.
+```{r 5.10a}
+# Setting seed
+set.seed(1999)
 
+# Defining info from description 
+mean_cd <- 600 
+sd_cd <- 400
+mean_ed <- 3
+sd_ed <- 1
+
+# Defining degrees of freedom 
+df_cost <- 50
+df_effect <- 100
+
+cost_dif <- rnorm(1000, mean_cd, sd_cd) * sqrt((df_cost -2)/df_cost)# Creating 1000 simulation draws of cost difference while adjusting for t-distribution approximation
+effect_dif <- rnorm(1000, mean_ed, sd_ed) * sqrt((df_effect -2)/df_effect) # Same for effectiveness difference
+
+df_med_dif <- data.frame(cost_dif, effect_dif) # Creating dataframe
+
+ggplot(df_med_dif, # Creating plot and choosing data
+       aes(x = cost_dif, y = effect_dif)) + # Choosing variables for x-axis and y-axis
+ geom_point (color = "aquamarine4") + # Creating scatterplot 
+ labs(title = "Scatterplot of difference in effect as a function of difference in cost") #Choosing title 
+```
+(b) Use simulation to come up with an estimate, 50% interval, and 95% interval for the incremental cost-effectiveness ratio.
+```{r exercise 5.10b}
+df_med_dif$ratio <- df_med_dif$cost_dif/df_med_dif$effect_dif # Creating column for incremental cost-effectiveness ratio 
+
+df_med_dif %>% ggplot(aes(x=ratio)) + # Plotting data 
+  geom_histogram(binwidth=50, color = "black", fill ="aquamarine") # Creating histogram
+
+quantile(df_med_dif$ratio, c(.25, .75))	# Calculating 50% interval
+quantile(df_med_dif$ratio, c(.025, .975)) # Calculating 95% interval
+
+median(df_med_dif$ratio) # Calculating median
+mean(df_med_dif$ratio) # Calculating mean
+mad(df_med_dif$ratio) # Calculating MAD
+```
+The calculated median, mean and MAD from our simulation were approximately 207.46, 243.52 and 152.63, in that order. We conclude that MAD is the most accurate estimate for describing the incremental cost-effectiveness ratio due to large outliers.
+This is also apparent in the difference between our 50% interval: [~122;~318.76] and our 95% interval: [-50.92;854.93]. 
+
+(c) Repeat, changing the standard error on the difference in effectiveness to 2.0.
 ---
+```{r exercise 5.10c}
+# Setting seeed
+set.seed(111)
+#New SD value
+effect_dif_sd <- rnorm(1000, 3, 2) * sqrt((df_effect -2)/df_effect) # Defining effectiveness difference estimates and adjusting for t-distribution approximation 
+
+df_med_dif_sd <- data.frame(cost_dif, effect_dif_sd) # Creating dataframe 
+
+df_med_dif_sd$ratio <- df_med_dif_sd$cost_dif/df_med_dif_sd$effect_dif_sd # Calculating ratio
+
+quantile(df_med_dif_sd$ratio, c(.25, .75))	# Calculating 50% interval
+quantile(df_med_dif_sd$ratio, c(.025, .975)) # Calculating 95% interval 
+
+median(df_med_dif_sd$ratio) # Calculating median 
+mean(df_med_dif_sd$ratio) # Calculating mean
+mad(df_med_dif$ratio)
+```
+We have calculated the estimates in median, mean and MAD as 176.51, 141.50 and 151.07 in that order. The differences are due to large outliers, MAD being the best estimate.
+We have calculated a 50% interval: [85.87;325.83] and a 95% interval: [-1336.07;1381.55], again displaying the large outliers. We see that the larger standard deviation leads to much larger intervals. 
